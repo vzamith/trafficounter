@@ -1,0 +1,24 @@
+name: Gerar APK do Traffic Count
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do codigo
+        uses: actions/checkout@v3
+
+      - name: Buildozer Action
+        uses: ArtemSerebriakov/buildozer-action@v1
+        id: buildozer
+        with:
+          command: buildozer android debug
+          buildozer_version: master
+
+      - name: Upload do APK Pronto
+        uses: actions/upload-artifact@v3
+        with:
+          name: aplicativo-od-survey
+          # O buildozer sempre coloca o apk na pasta bin/
+          path: bin/*.apk
