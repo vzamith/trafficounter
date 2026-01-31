@@ -18,7 +18,7 @@ requirements = python3,kivy,datetime
 orientation = portrait
 
 # Permissões (se precisar de internet, por exemplo, descomente a linha abaixo)
-# android.permissions = INTERNET
+android.permissions = WRITE_EXTERNAL_STORAGE, READ_EXTERNAL_STORAGE
 
 [buildozer]
 log_level = 2
