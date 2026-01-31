@@ -1,24 +1,35 @@
-name: Gerar APK do Traffic Count
-on: [push, pull_request]
-
+name: Build Android APK
+on:
+  push:
+    branches:
+      - main
+ 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout do codigo
+      - name: Checkout code
         uses: actions/checkout@v3
-
-      - name: Buildozer Action
-        uses: ArtemSerebriakov/buildozer-action@v1
-        id: buildozer
+ 
+      - name: Setup Python
+        uses: actions/setup-python@v4
         with:
-          command: buildozer android debug
-          buildozer_version: master
-
-      - name: Upload do APK Pronto
-        uses: actions/upload-artifact@v3
+          python-version: '3.11'
+ 
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+ 
+      # ESTE PASSO VAI MOSTRAR NO LOG QUAIS ARQUIVOS ESTÃO LÁ
+      - name: Debug - List files
+        run: |
+          echo "Listando arquivos na raiz:"
+          ls -la
+      - name: Build APK
+        # O ponto "." no final diz para usar o diretório atual
+        # O "yes" aceita as licenças do Android SDK automaticamente
+        run: yes | flet build apk . --verbose
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
         with:
-          name: aplicativo-od-survey
-          # O buildozer sempre coloca o apk na pasta bin/
-          path: bin/*.apk
+          name: app-release
+          path: build/apk/app-release.apk
