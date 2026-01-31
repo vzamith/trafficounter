@@ -1,5 +1,4 @@
 import flet as ft
-import os
 import csv
 import asyncio
 from datetime import datetime
@@ -14,9 +13,9 @@ class GestorContador:
         self.dd_ponto = dd_ponto
         self.dd_direcao = dd_direcao
         self.valor = 0
-        self.page = page
+        self.page = page 
 
-        # Criando os componentes visuais
+        # Componentes visuais
         self.txt_valor = ft.Text(value="0", size=20, weight="bold", width=50, text_align="center")
         
         btn_menos = ft.ElevatedButton(
@@ -35,7 +34,6 @@ class GestorContador:
         
         lbl_nome = ft.Text(value=categoria, width=150, size=16)
 
-        # O Layout visual desta linha
         self.layout = ft.Row(
             controls=[lbl_nome, btn_menos, self.txt_valor, btn_mais],
             alignment="spaceBetween"
@@ -45,44 +43,94 @@ class GestorContador:
         self.txt_valor.value = str(self.valor)
         self.txt_valor.update()
 
+    async def efeito_flash(self):
+        cor_original = self.page.bgcolor
+        # Pisca cinza escuro (Hex code seguro)
+        self.page.bgcolor = "#455A64" 
+        self.page.update()
+        await asyncio.sleep(0.1)
+        self.page.bgcolor = cor_original
+        self.page.update()
+
     def registrar(self, delta):
         agora = datetime.now()
         acao = "Soma" if delta > 0 else "Subtracao"
         
-        # Pega o valor dos Dropdowns (se estiver vazio, coloca um traço "-")
         ponto = self.dd_ponto.value if self.dd_ponto.value else "-"
         direcao = self.dd_direcao.value if self.dd_direcao.value else "-"
 
-        # Adiciona ao histórico com as chaves corretas
         historico_total.append({
             "Data": agora.strftime("%Y-%m-%d"),
             "Hora": agora.strftime("%H:%M:%S"),
             "Ponto": ponto,
-            "Direcao": direcao,  # Aqui garantimos que entra no CSV
+            "Direcao": direcao,
             "Veiculo": self.categoria,
             "Acao": acao,
             "Total_Momento": self.valor
         })
 
-    def aumentar(self, e):
+    async def aumentar(self, e):
         self.valor += 1
         self.registrar(1)
         self.atualizar_tela()
+        await self.efeito_flash() 
 
-    def diminuir(self, e):
+    async def diminuir(self, e):
         if self.valor > 0:
             self.valor -= 1
             self.registrar(-1)
             self.atualizar_tela()
+            await self.efeito_flash()
 
 
 async def main(page: ft.Page):
     page.title = "DUSHANBE Traffic Survey"
     page.scroll = "auto"
     page.padding = 20
-    page.theme_mode = "light"
+    page.theme_mode = "light" 
 
-    # --- CABEÇALHO (PONTO E DIREÇÃO) ---
+    # --- 1. CONFIGURA O SELETOR DE ARQUIVOS (FILE PICKER) ---
+    def salvar_arquivo_resultado(e: ft.FilePickerResultEvent):
+        # Se o usuário cancelar a escolha da pasta, não faz nada
+        if not e.path:
+            return
+
+        try:
+            # Salva no caminho que o usuário escolheu (e.path)
+            with open(e.path, mode='w', newline='', encoding='utf-8') as f:
+                cabecalho = ["Data", "Hora", "Ponto", "Direcao", "Veiculo", "Acao", "Total_Momento"]
+                writer = csv.DictWriter(f, fieldnames=cabecalho)
+                writer.writeheader()
+                writer.writerows(historico_total)
+            
+            # --- 2. POP UP SIMPLES "SAVED" ---
+            dlg_saved = ft.AlertDialog(
+                title=ft.Text("Saved"),
+                content=None, 
+                actions=[
+                    ft.TextButton("OK", on_click=lambda _: page.close_dialog())
+                ],
+                actions_alignment="end",
+            )
+            page.dialog = dlg_saved
+            dlg_saved.open = True
+            page.update()
+
+        except Exception as ex:
+            dlg_erro = ft.AlertDialog(
+                title=ft.Text("Error"),
+                content=ft.Text(f"{ex}")
+            )
+            page.dialog = dlg_erro
+            dlg_erro.open = True
+            page.update()
+
+    # Adiciona o componente invisível que abre a janela de arquivos
+    file_picker = ft.FilePicker(on_result=salvar_arquivo_resultado)
+    page.overlay.append(file_picker)
+    page.update()
+
+    # --- CABEÇALHO ---
     opcoes_ponto = [ft.dropdown.Option(str(i).zfill(2)) for i in range(1, 24)]
     
     dd_ponto = ft.Dropdown(
@@ -93,7 +141,7 @@ async def main(page: ft.Page):
     )
 
     dd_direcao = ft.Dropdown(
-        label="Направление", # Label na tela DIRECTION
+        label="Направление",
         options=[
             ft.dropdown.Option("A"), 
             ft.dropdown.Option("B")
@@ -102,79 +150,39 @@ async def main(page: ft.Page):
         hint_text="A / B"
     )
 
-    linha_config = ft.Row(
-        controls=[dd_ponto, dd_direcao], 
-        alignment="center"
-    )
+    linha_config = ft.Row(controls=[dd_ponto, dd_direcao], alignment="center")
 
-    # --- EXPORTAR CSV ---
-    async def acao_exportar(e):
-        btn = e.control
+    # --- BOTÃO DE EXPORTAR ---
+    def clicar_exportar(e):
         if not historico_total:
-            btn.text = "NO DATA"
-            btn.bgcolor = "grey"
-            btn.update()
-            await asyncio.sleep(2)
-            btn.text = "Экспорт данных" #EXPORTAR DADOS
-            btn.bgcolor = "blue"
-            btn.update()
+            dlg_aviso = ft.AlertDialog(title=ft.Text("No Data"))
+            page.dialog = dlg_aviso
+            dlg_aviso.open = True
+            page.update()
             return
-
-        # Define onde salvar
-        nome_base = "survey_dushanbe"
-        pasta = "/storage/emulated/0/Download"
-        if not os.path.exists(pasta):
-            pasta = "." 
-            
-        caminho = os.path.join(pasta, f"{nome_base}.csv")
         
-        # Numera o arquivo se já existir (ex: survey_dushanbe_1.csv)
-        count = 1
-        while os.path.exists(caminho):
-            caminho = os.path.join(pasta, f"{nome_base}_{count}.csv")
-            count += 1
-
-        try:
-            with open(caminho, mode='w', newline='', encoding='utf-8') as f:
-                # AQUI ESTÃO AS COLUNAS DO ARQUIVO FINAL
-                cabecalho = ["Data", "Hora", "Ponto", "Direcao", "Veiculo", "Acao", "Total_Momento"]
-                
-                writer = csv.DictWriter(f, fieldnames=cabecalho)
-                writer.writeheader()
-                writer.writerows(historico_total)
-            
-            btn.text = f"SALVO: {os.path.basename(caminho)}"
-            btn.bgcolor = "amber"
-            btn.update()
-        except Exception as ex:
-            btn.text = "ERRO (Permissao)"
-            btn.bgcolor = "red"
-            print(ex)
-            btn.update()
-
-        await asyncio.sleep(2)
-        btn.text = "Экспорт данных" #EXPORTAR DADOS
-        btn.bgcolor = "blue"
-        btn.update()
+        # Gera um nome sugerido com Hora/Minuto
+        nome_sugestao = f"survey_dushanbe_{datetime.now().strftime('%H-%M')}.csv"
+        
+        # AQUI ACONTECE A MÁGICA: Abre a janela pro usuário escolher a pasta
+        file_picker.save_file(file_name=nome_sugestao)
 
     # --- MONTAGEM DA TELA ---
-    categorias = ["Автомобиль", "Такси", "Автобус", "Троллейбус", "Фургон / микроавтобус", "Мотоцикл", "Грузовик"] #["Carro", "Taxi", "Onibus", "Trolleybus", "Van/Minibus", "Moto", "Caminhao"]
+    categorias = ["Автомобиль (Car)", "Такси (Taxi)", "Автобус (Bus)", "Троллейбус (Trolley)", "микроавтобус(Minibus)", "Мотоцикл (Moto)", "Грузовик (Truck)"] 
     coluna_contadores = ft.Column(spacing=15)
 
-    # Cria cada linha passando os dropdowns
     for cat in categorias:
         gestor = GestorContador(cat, dd_ponto, dd_direcao, page)
         coluna_contadores.controls.append(gestor.layout)
 
     btn_exportar = ft.ElevatedButton(
-        text="Экспорт данных", #EXPORTAR DADOS
+        text="Экспорт данных", 
         height=60,
         bgcolor="blue",
         color="white",
-        on_click=acao_exportar
+        on_click=clicar_exportar
     )
 
-    # Adiciona tudo na página
     page.add(
         ft.Text("DUSHANBE Traffic Count", size=24, weight="bold"),
         ft.Divider(),
