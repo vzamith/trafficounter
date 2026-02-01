@@ -1,35 +1,35 @@
-name: Build Android APK
-on:
-  push:
-    branches:
-      - main
- 
+name: Build Flet APK
+on: [push]
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
- 
+      - uses: actions/checkout@v4
+
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
- 
-      - name: Install dependencies
-        run: pip install -r requirements.txt
- 
-      # ESTE PASSO VAI MOSTRAR NO LOG QUAIS ARQUIVOS ESTÃO LÁ
-      - name: Debug - List files
+          python_version: '3.11'
+
+      - name: Install Dependencies
         run: |
-          echo "Listando arquivos na raiz:"
-          ls -la
+          pip install -r requirements.txt
+          pip install flet
+
       - name: Build APK
-        # O ponto "." no final diz para usar o diretório atual
-        # O "yes" aceita as licenças do Android SDK automaticamente
-        run: yes | flet build apk . --verbose
-      - name: Upload APK
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Flet Build APK
+        run: |
+          # O comando 'flet build apk' gera o pacote Android
+          pip install flet-cli
+          flet build apk
+
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-release
-          path: build/apk/app-release.apk
+          name: flet-app-apk
+          path: build/apk/*.apk
