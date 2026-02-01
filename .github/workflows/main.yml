@@ -10,26 +10,31 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python_version: '3.11'
+          python-version: '3.11' # Corrigido: agora com hífen
 
       - name: Install Dependencies
         run: |
           pip install -r requirements.txt
-          pip install flet
+          pip install flet-cli
 
-      - name: Build APK
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
 
       - name: Flet Build APK
         run: |
-          # O comando 'flet build apk' gera o pacote Android
-          pip install flet-cli
+          # O comando oficial para compilar o projeto Flet
           flet build apk
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: flet-app-apk
+          name: dushanbe-survey-app
           path: build/apk/*.apk
